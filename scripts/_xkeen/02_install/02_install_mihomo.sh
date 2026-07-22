@@ -7,7 +7,7 @@ install_mihomo() {
 
     # Проверка наличия архива Mihomo
     if [ ! -f "$mihomo_archive" ]; then
-        echo -e "  ${red}Ошибка${reset}: Архив Mihomo не найден в '$tmp_ram'"
+        echo -e "  ${red}✗ Ошибка${reset}: Архив Mihomo не найден в '$tmp_ram'"
         return 1
     fi
 
@@ -25,7 +25,7 @@ install_mihomo() {
     else
         _err="$(cat "$gzip_err" 2>/dev/null)"
         rm -f "$gzip_err" "$_mihomo_tmp" "$mihomo_archive"
-        echo -e "  ${red}Ошибка${reset}: Не удалось распаковать архив Mihomo"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось распаковать архив Mihomo"
         [ -n "$_err" ] && echo -e "  Подробности: $_err"
         case "$_err" in
             *"No space left"*|*"ENOSPC"*|*"места"*)
@@ -41,7 +41,7 @@ install_mihomo() {
     elf_magic="$(hexdump -n 4 -e '4/1 "%02x"' "$_mihomo_tmp" 2>/dev/null)"
     if [ "$elf_magic" != "7f454c46" ]; then
         rm -f "$_mihomo_tmp" "$mihomo_archive"
-        echo -e "  ${red}Ошибка${reset}: Распакованный файл Mihomo не является ELF-бинарником (повреждён или не докачан)"
+        echo -e "  ${red}✗ Ошибка${reset}: Распакованный файл Mihomo не является ELF-бинарником (повреждён или не докачан)"
         [ -f "$install_dir/mihomo_bak" ] && mv "$install_dir/mihomo_bak" "$install_dir/mihomo" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Mihomo"
         return 1
@@ -52,7 +52,7 @@ install_mihomo() {
     case "$sz" in ''|*[!0-9]*) sz=0 ;; esac
     if [ "$sz" -lt 1048576 ]; then
         rm -f "$_mihomo_tmp" "$mihomo_archive"
-        echo -e "  ${red}Ошибка${reset}: Распакованный файл Mihomo подозрительно мал ($sz B)"
+        echo -e "  ${red}✗ Ошибка${reset}: Распакованный файл Mihomo подозрительно мал ($sz B)"
         [ -f "$install_dir/mihomo_bak" ] && mv "$install_dir/mihomo_bak" "$install_dir/mihomo" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Mihomo"
         return 1
@@ -62,7 +62,7 @@ install_mihomo() {
     rm -f "$mihomo_archive"
 
     if [ ! -f "$mtmp_dir/mihomo" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не удалось распаковать архив или файл отсутствует"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось распаковать архив или файл отсутствует"
         [ -f "$install_dir/mihomo_bak" ] && mv "$install_dir/mihomo_bak" "$install_dir/mihomo" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Mihomo"
         return 1
@@ -74,7 +74,7 @@ install_mihomo() {
         rm -f "$mv_err" "$mtmp_dir/mihomo"
         # Зачищаем возможный недописанный мусор в целевой директории
         rm -f "$install_dir/mihomo"
-        echo -e "  ${red}Ошибка${reset}: Не удалось переместить Mihomo в $install_dir"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось переместить Mihomo в $install_dir"
         [ -n "$_err" ] && echo -e "  Подробности: $_err"
         case "$_err" in
             *"No space left"*|*"ENOSPC"*|*"места"*)
@@ -91,7 +91,7 @@ install_mihomo() {
 
     # Финальная проверка: бинарник существует, исполняем, запускается
     if [ ! -x "$install_dir/mihomo" ] || ! "$install_dir/mihomo" -v >/dev/null 2>&1; then
-        echo -e "  ${red}Ошибка${reset}: Установленный Mihomo не запускается (повреждён или несовместим с архитектурой)"
+        echo -e "  ${red}✗ Ошибка${reset}: Установленный Mihomo не запускается (повреждён или несовместим с архитектурой)"
         rm -f "$install_dir/mihomo"
         [ -f "$install_dir/mihomo_bak" ] && mv "$install_dir/mihomo_bak" "$install_dir/mihomo" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Mihomo"

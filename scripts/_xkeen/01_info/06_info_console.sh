@@ -7,7 +7,7 @@ print_log_status() {
     if [ "$status_code" -eq 0 ]; then
         echo -e "  ${green}Успешно${reset}: $success_msg"
     else
-        echo -e "  ${red}Ошибка${reset}: $error_msg"
+        echo -e "  ${red}✗ Ошибка${reset}: $error_msg"
     fi
 }
 
@@ -35,7 +35,7 @@ logs_delete_configs_info_console() {
     if [ -z "$deleted_files" ]; then
         echo -e "  ${green}Успешно${reset}: Все конфигурационные файлы Xray удалены"
     else
-        echo -e "  ${red}Ошибка${reset}: Не удалены следующие конфигурационные файлы:"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалены следующие конфигурационные файлы:"
         for file in $deleted_files; do
             echo -e "    $file"
         done

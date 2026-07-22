@@ -33,7 +33,18 @@ for arg in "$@"; do
 done
 
 # Функция умной очистки экрана
+#
+# По умолчанию (screen_mode=flow) экран не стирается: вывод предыдущих шагов
+# остаётся на месте, поэтому ход операции можно разобрать целиком, а не только
+# её последний экран. Прежнее поведение возвращается через xkeen.json:
+#
+#   { "xkeen": { "screen_mode": "clear" } }
+#
+# screen_mode задаётся в 01_info_variable.sh и на момент первых вызовов может
+# быть ещё не определён, поэтому пустое значение трактуется как flow.
 smart_clear() {
+    [ "$screen_mode" = "clear" ] || return 0
+
     # Очищаем экран, только если запущена одна логическая команда
     if [ "$LOGICAL_CMD_COUNT" -le 1 ]; then
         clear
@@ -127,7 +138,7 @@ while [ $# -gt 0 ]; do
             echo
             check_keen_mode
             if [ -n "$keen_mode" ]; then
-                echo -e "  ${red}Ошибка${reset}: Установка XKeen возможна только на Keenetic в режиме ${green}роутера${reset}"
+                echo -e "  ${red}✗ Ошибка${reset}: Установка XKeen возможна только на Keenetic в режиме ${green}роутера${reset}"
                 exit 1
             fi
 
@@ -205,7 +216,7 @@ while [ $# -gt 0 ]; do
 
             if [ "$mihomo_installed" != "installed" ] && [ "$xray_installed" != "installed" ]; then
                 echo
-                echo -e "  ${red}Ошибка${reset}: Установка прервана. Не установлено ни одного ядра проксирования (Xray или Mihomo)"
+                echo -e "  ${red}✗ Ошибка${reset}: Установка прервана. Не установлено ни одного ядра проксирования (Xray или Mihomo)"
                 exit 1
             fi
 
@@ -373,7 +384,7 @@ while [ $# -gt 0 ]; do
             echo
             check_keen_mode
             if [ -n "$keen_mode" ]; then
-            echo -e "  ${red}Ошибка${reset}: Установка XKeen возможна только на Keenetic в режиме ${green}роутера${reset}"
+            echo -e "  ${red}✗ Ошибка${reset}: Установка XKeen возможна только на Keenetic в режиме ${green}роутера${reset}"
                 exit 1
             fi
             echo "  Установка XKeen OffLine"
@@ -641,7 +652,7 @@ while [ $# -gt 0 ]; do
                 if ! install_xray; then
                     echo
                     delete_tmp
-                    echo -e "  ${red}Ошибка${reset}: Установка Xray не выполнена"
+                    echo -e "  ${red}✗ Ошибка${reset}: Установка Xray не выполнена"
                     exit 1
                 fi
 
@@ -722,7 +733,7 @@ while [ $# -gt 0 ]; do
                 if ! install_mihomo; then
                     echo
                     delete_tmp
-                    echo -e "  ${red}Ошибка${reset}: Установка Mihomo не выполнена. См. сообщения выше"
+                    echo -e "  ${red}✗ Ошибка${reset}: Установка Mihomo не выполнена. См. сообщения выше"
                     exit 1
                 fi
                 info_mihomo
@@ -730,7 +741,7 @@ while [ $# -gt 0 ]; do
                 if [ "$mihomo_installed" != "installed" ]; then
                     echo
                     delete_tmp
-                    echo -e "  ${red}Ошибка${reset}: Mihomo не установлен (отсутствует обязательный Yq или бинарник Mihomo)"
+                    echo -e "  ${red}✗ Ошибка${reset}: Mihomo не установлен (отсутствует обязательный Yq или бинарник Mihomo)"
                     exit 1
                 elif [ "$mihomo_was_installed" = "installed" ]; then
                     echo -e "  Выполняется отмена регистрации предыдущей версии ${yellow}Mihomo${reset}"
@@ -1491,7 +1502,7 @@ while [ $# -gt 0 ]; do
                     shift
                     ;;
                 *)
-                    echo -e "  ${red}Ошибка${reset}: используйте ${yellow}xkeen -pbr on${reset}, ${yellow}off${reset}, ${yellow}status${reset} или ${yellow}codes${reset}"
+                    echo -e "  ${red}✗ Ошибка${reset}: используйте ${yellow}xkeen -pbr on${reset}, ${yellow}off${reset}, ${yellow}status${reset} или ${yellow}codes${reset}"
                     exit 1
                     ;;
             esac

@@ -52,17 +52,20 @@ speed_balancer_settings() {
 
 . /repo/scripts/_xkeen/04_tools/08_tools_balancer/01_balancer_core.sh
 . /repo/scripts/_xkeen/04_tools/08_tools_balancer/02_balancer_control.sh
+# sb_menu теперь ходит через слой ask_* — он нужен для его теста
+. /repo/scripts/_xkeen/04_tools/05_tools_choice/00_choice_ask.sh
 
 # --- заглушки xray и curl ------------------------------------------------
-# STUB_CURRENT — что балансировщик выбирает сейчас; STUB_SPEED_<node> в КБ*1024
+# STUB_CURRENT — выбор leastPing (секция Selects); STUB_OVERRIDE — форс через bo
+# (секция Selecting Override, пусто = не выставлен). STUB_SPEED_<node> в КБ*1024
 # задаёт «скорость» ноды (байт за 1с). STUB_BO — куда записан последний bo.
-STUB_CURRENT="sub-a"; STUB_BO=""
+STUB_CURRENT="sub-a"; STUB_OVERRIDE=""; STUB_BO=""
 
 xray() {
     # $1=api
     case "$2" in
         lsrules) echo '{"rules":[]}'; return 0 ;;
-        bi)  printf '  - Selecting Override:\n    1   \n  - Selects:\n    1   %s          \n' "$STUB_CURRENT"; return 0 ;;
+        bi)  printf '  - Selecting Override:\n    1   %s\n  - Selects:\n    1   %s          \n' "$STUB_OVERRIDE" "$STUB_CURRENT"; return 0 ;;
         adrules) return 0 ;;
         rmrules) return 0 ;;
         bo)
@@ -163,6 +166,12 @@ sb_outbounds_file="$xray_conf_dir/04_outbounds.json"
 sb_balancer="balancer"; STUB_CURRENT="sub-b"
 check "sb_current_target читает Selects" "$(sb_current_target)" "sub-b"
 
+# override (bo) важнее выбора leastPing — показываем реально активную ноду
+STUB_OVERRIDE="sub-forced"
+check "sb_current_target: override важнее Selects" "$(sb_current_target)" "sub-forced"
+STUB_OVERRIDE=""
+check "sb_current_target: без override -> Selects" "$(sb_current_target)" "sub-b"
+
 # === замер одной ноды (возвращает "КБ/с код") ===
 STUB_SPEED_sub_a=$((2048*1024))   # 2048 КБ/с
 printf '{"routing":{"rules":[{"ruleTag":"x","type":"field","inboundTag":["probe"],"outboundTag":"sub-a"}]}}' > "$sb_rule_tmp"
@@ -205,6 +214,52 @@ STUB_CURRENT="sub-a"; STUB_BO=""
 STUB_SPEED_sub_a=0; STUB_SPEED_sub_b=0; STUB_SPEED_sub_us1=0
 sb_tick >/dev/null 2>&1
 check "все мертвы -> bo не вызван" "$STUB_BO" ""
+
+# === sb_status: текущая нода одним вызовом api; без TTY плейсхолдер не печатается ===
+rm -f "$sb_log_file"
+STUB_CURRENT="sub-xx1"
+out=$(sb_status 2>&1)
+check "sb_status: печатает текущую ноду" "$(printf '%s' "$out" | grep -c 'sub-xx1')" "1"
+check "sb_status: без TTY нет плейсхолдера" "$(printf '%s' "$out" | grep -c 'получаю')" "0"
+
+STUB_CURRENT=""
+out=$(sb_status 2>&1)
+check "sb_status: пустой ответ api -> прочерк" "$(printf '%s' "$out" | grep -c 'api недоступен')" "1"
+
+# === sb_menu через ask_one: не зацикливается без TTY, диспетчеризует выбор ===
+# Ввод подаётся редиректом (не пайпом): пайп увёл бы sb_menu в субшелл, и
+# SB_ACTION не пережил бы возврат.
+sb_status()  { :; }                       # без обращений к xray/логам
+sb_enable()  { SB_ACTION="enable"; }
+sb_disable() { SB_ACTION="disable"; }
+sb_tick()    { SB_ACTION="tick"; }
+_ask_keys_mode="no"                        # заведомо числовой режим
+
+SB_ACTION=""
+sb_menu </dev/null >/dev/null 2>&1
+check "sb_menu: EOF -> выход без спина" "$?" "0"
+
+sb_menu >/dev/null 2>&1 <<'EOF'
+0
+EOF
+check "sb_menu: выбор 0 -> выход" "$?" "0"
+
+sb_enabled="false"                          # sb_status застаблен — состояние ставим явно
+SB_ACTION=""
+sb_menu >/dev/null 2>&1 <<'EOF'
+1
+0
+EOF
+check "sb_menu: 1 при выключенной -> enable" "$SB_ACTION" "enable"
+
+# пункт «Прогнать замер» скрыт на выключенной балансировке и виден на включённой
+sb_enabled="false"
+out=$(printf '0\n' | sb_menu 2>&1)
+check "sb_menu: без 'Прогнать замер' когда выключено" "$(printf '%s' "$out" | grep -c 'Прогнать замер')" "0"
+sb_enabled="true"
+out=$(printf '0\n' | sb_menu 2>&1)
+check "sb_menu: с 'Прогнать замер' когда включено" "$(printf '%s' "$out" | grep -c 'Прогнать замер')" "1"
+sb_enabled="false"
 
 rm -rf "$WORK"
 printf '\n=== пройдено: %s, провалено: %s ===\n' "$pass" "$fail"

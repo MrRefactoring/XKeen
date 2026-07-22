@@ -1,0 +1,82 @@
+name: Checks
+
+# Только pull_request: с триггером на push проверки запускались дважды —
+# сначала на пуш ветки, затем на открытие PR. Вся работа идёт через PR,
+# поэтому второго повода нет.
+#
+# Побочный эффект: прямой push в main проверки не запустит. Это осознанно —
+# в main попадает только то, что прошло проверки в PR.
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'spec/**'
+      - '.github/workflows/checks.yaml'
+  workflow_dispatch:
+
+jobs:
+  syntax:
+    name: Синтаксис POSIX sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Проверяем настоящим BusyBox ash, а не bash: целевая среда — Entware
+      # на роутере. Архитектура здесь не важна, семантика шелла от неё не
+      # зависит, поэтому образ берётся под архитектуру раннера.
+      - name: Разбор всех скриптов в BusyBox ash
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" busybox:1.36 sh -c '
+            err=0
+            for f in $(find /repo/scripts -name "*.sh") /repo/scripts/xkeen; do
+              sh -n "$f" || { echo "Синтаксическая ошибка: $f"; err=1; }
+            done
+            [ $err -eq 0 ] && echo "Синтаксис в порядке"
+            exit $err
+          '
+
+  spec:
+    name: Тесты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Тесты, не требующие jq
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" busybox:1.36 sh -c '
+            err=0
+            for t in test_ask test_ask_keys test_mirrors; do
+              printf "%-16s " "$t"
+              sh "/repo/spec/$t.sh" | tail -1 || err=1
+            done
+            exit $err
+          '
+
+      # Alpine — та же BusyBox ash, но с пакетами: режим экрана читает
+      # настройку через jq, которого в голом busybox нет
+      - name: Тесты, требующие jq
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" alpine:3.19 sh -c '
+            apk add -q jq
+            sh /repo/spec/test_screen_mode.sh | tail -1
+          '
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Отчёт, а не ворота. В кодовой базе есть накопленный фон предупреждений
+      # (echo -e, local, ссылки на переменные из соседних модулей), поэтому
+      # падение по любому warning заблокировало бы всё. Правило проекта
+      # «нулевая толерантность к новым warning-ам» проверяется сравнением
+      # с базовой веткой глазами ревьюера.
+      - name: Сводка по предупреждениям
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -s sh scripts/xkeen $(find scripts -name '*.sh') \
+            | grep -oE 'SC[0-9]+' | sort | uniq -c | sort -rn \
+            | tee shellcheck-summary.txt
+          echo "Всего: $(awk '{s+=$1} END {print s}' shellcheck-summary.txt)"

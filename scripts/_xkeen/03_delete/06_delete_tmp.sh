@@ -28,25 +28,11 @@ delete_all() {
     echo -e "  Удалить резервные копии и пользовательские настройки?"
     echo -e "  ${yellow}$backups_dir${reset}"
     echo -e "  ${yellow}$xkeen_cfg${reset}"
-    echo
-    echo "     1. Да, удалить"
-    echo "     0. Нет, оставить"
-    echo
 
-    while true; do
-        read -r -p "  Ваш выбор: " choice
-        case "$choice" in
-            1)
-                [ -d "$backups_dir" ] && rm -rf "$backups_dir"
-                [ -d "$xkeen_cfg" ] && rm -rf "$xkeen_cfg"
-                return 0
-                ;;
-            0)
-                return 0
-                ;;
-            *)
-                echo -e "  ${red}Некорректный ввод${reset}"
-                ;;
-        esac
-    done
+    if ask_yesno "" "Да, удалить" "Нет, оставить"; then
+        [ -d "$backups_dir" ] && rm -rf "$backups_dir"
+        [ -d "$xkeen_cfg" ] && rm -rf "$xkeen_cfg"
+    fi
+
+    return 0
 }

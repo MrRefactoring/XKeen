@@ -159,9 +159,9 @@ test_github() {
     fi
 
     if [ -n "$gh_proxy_user" ]; then
-        printf "  ${red}Ошибка${reset}: Указанный вами прокси $gh_proxy_user недоступен\n"
+        printf "  ${red}✗ Ошибка${reset}: Указанный вами прокси $gh_proxy_user недоступен\n"
     else
-        printf "  ${red}Ошибка${reset}: GitHub недоступен\n"
+        printf "  ${red}✗ Ошибка${reset}: GitHub недоступен\n"
     fi
     exit 1
 }

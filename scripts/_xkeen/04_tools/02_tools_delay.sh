@@ -12,7 +12,7 @@ _manage_delay() {
     local new_delay="$3"
 
     if [ ! -f "$initd_file" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не найден файл автозапуска ${yellow}S05xkeen${reset}"
+        echo -e "  ${red}✗ Ошибка${reset}: Не найден файл автозапуска ${yellow}S05xkeen${reset}"
         return 1
     fi
 
@@ -26,7 +26,7 @@ _manage_delay() {
 
     case "$new_delay" in
         ''|*[!0-9]*)
-            echo -e "  ${red}Ошибка${reset}"
+            echo -e "  ${red}✗ Ошибка${reset}"
             echo "  Новая задержка должна быть числом"
             return 1
         ;;
@@ -51,7 +51,7 @@ _manage_delay() {
     if [ "$(_get_delay_param "$param_name" "$initd_file")" = "$new_delay" ]; then
         echo -e "  Установлена задержка ${display_name} ${yellow}${new_delay} секунд(ы)${reset}"
     else
-        echo -e "  ${red}Ошибка${reset}: не удалось обновить параметр"
+        echo -e "  ${red}✗ Ошибка${reset}: не удалось обновить параметр"
         return 1
     fi
 }

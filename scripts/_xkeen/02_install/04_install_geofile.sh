@@ -7,7 +7,7 @@ process_geo_file() {
 
     # Защита от path traversal
     if case "$filename" in */*|*\\*|..|.) true;; *) false;; esac; then
-        printf "  ${red}Ошибка${reset}: Недопустимое имя файла %s (path traversal)\n" "$filename"
+        printf "  ${red}✗ Ошибка${reset}: Недопустимое имя файла %s (path traversal)\n" "$filename"
         return 1
     fi
 
@@ -23,7 +23,7 @@ process_geo_file() {
         if [ -f "$geo_dir/$filename" ] || [ -L "$geo_dir/$filename" ]; then
             printf "  ${green}Оставляем старый файл${reset} %s\n\n" "$display_name"
         else
-            printf "  ${red}Ошибка${reset}: старый файл %s отсутствует, а загрузка без проверки размера пропущена\n\n" "$display_name"
+            printf "  ${red}✗ Ошибка${reset}: старый файл %s отсутствует, а загрузка без проверки размера пропущена\n\n" "$display_name"
         fi
         return 1
     fi
@@ -36,17 +36,17 @@ process_geo_file() {
         # Обработка ошибок, если все попытки провалились
         case "$_last_error" in
             html_stub)
-                printf "  ${red}Ошибка${reset}: получена HTML-страница вместо dat-файла\n"
+                printf "  ${red}✗ Ошибка${reset}: получена HTML-страница вместо dat-файла\n"
                 ;;
             size|size_mismatch)
-                printf "  ${red}Ошибка${reset}: Размер загруженного файла не соответствует ожидаемому\n"
+                printf "  ${red}✗ Ошибка${reset}: Размер загруженного файла не соответствует ожидаемому\n"
                 ;;
             *)
                 local max_attempts=${retries_download:-1}
                 if [ "$max_attempts" -gt 1 ]; then
-                    printf "  ${red}Ошибка${reset}: не удалось загрузить %s после %d попыток\n" "$display_name" "$max_attempts"
+                    printf "  ${red}✗ Ошибка${reset}: не удалось загрузить %s после %d попыток\n" "$display_name" "$max_attempts"
                 else
-                    printf "  ${red}Ошибка${reset}: не удалось загрузить %s\n" "$display_name"
+                    printf "  ${red}✗ Ошибка${reset}: не удалось загрузить %s\n" "$display_name"
                 fi
                 ;;
         esac
@@ -156,12 +156,12 @@ update_user_geofiles() {
     [ -f "$xkeen_config" ] || return 0
 
     if ! command -v jq >/dev/null 2>&1; then
-        printf "  ${red}Ошибка${reset}: jq не найден, пропуск обработки пользовательских геофайлов\n\n"
+        printf "  ${red}✗ Ошибка${reset}: jq не найден, пропуск обработки пользовательских геофайлов\n\n"
         return 1
     fi
 
     if ! strip_json_comments "$xkeen_config" | jq empty >/dev/null 2>&1; then
-        printf "  ${red}Ошибка${reset}: Некорректный JSON в файле ${yellow}xkeen.json${reset}\n\n"
+        printf "  ${red}✗ Ошибка${reset}: Некорректный JSON в файле ${yellow}xkeen.json${reset}\n\n"
         return 1
     fi
 
@@ -180,7 +180,7 @@ update_user_geofiles() {
         url=$(printf '%s' "$entry" | jq -r '.url // empty')
 
         if [ -z "$file" ] || [ -z "$url" ]; then
-            printf "  ${red}Ошибка${reset}: Некорректная запись в разделе ${light_blue}geofile${reset} файла ${yellow}xkeen.json${reset}\n\n"
+            printf "  ${red}✗ Ошибка${reset}: Некорректная запись в разделе ${light_blue}geofile${reset} файла ${yellow}xkeen.json${reset}\n\n"
             return 1
         fi
 

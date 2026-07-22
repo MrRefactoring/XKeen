@@ -21,7 +21,7 @@ _xray_build_url() {
 _xray_perform_install() {
     local version="$1"
     if ! _xray_build_url "$version"; then
-        printf "  ${red}Ошибка${reset}: Не удалось получить URL для загрузки Xray\n"
+        printf "  ${red}✗ Ошибка${reset}: Не удалось получить URL для загрузки Xray\n"
         return 1
     fi
     mkdir -p "$tmp_ram"
@@ -59,49 +59,48 @@ download_xray() {
     fi
 
     # --- ИНТЕРАКТИВНЫЙ РЕЖИМ ---
+    #
+    # Список релизов строится на лету, поэтому пункты накапливаются в
+    # позиционных параметрах — в POSIX sh это единственная замена массиву.
+    # Здесь это безопасно: download_xray собственных аргументов не имеет.
+    #
+    # Ручной ввод получил нечисловой ключ. Раньше он занимал номер 9, а
+    # релизов запрашивается десять, из-за чего девятый релиз был недостижим,
+    # а десятый не проходил проверку [0-9].
+    # ВНИМАНИЕ: set -- затирает аргументы функции. Сейчас это безопасно,
+    # потому что download_xray их не принимает. Если функции когда-нибудь понадобится
+    # параметр, его нужно сохранить в переменную ДО этой строки, иначе
+    # он потеряется, а падение произойдёт ниже по коду и с невнятным
+    # симптомом.
+    set --
+    releases_count=0
+    while IFS= read -r release_tag; do
+        [ -z "$release_tag" ] && continue
+        releases_count=$((releases_count + 1))
+        set -- "$@" "$releases_count|$release_tag"
+    done <<EOF
+$RELEASE_TAGS
+EOF
+    set -- "$@" "|" "m|Ручной ввод версии" "0|Пропустить загрузку Xray|default"
+
     while true; do
-        echo
-        echo "$RELEASE_TAGS" | awk '{printf "    %2d. %s\n", NR, $0}'
-        echo
-        echo "     9. Ручной ввод версии"
-        echo
-        echo "     0. Пропустить загрузку Xray"
+        ask_one "Выберите релиз ${yellow}Xray${reset} для загрузки" "$@" || {
+            bypass_xray="true"
+            return
+        }
 
-        printf "\n  Введите порядковый номер релиза (0 - пропустить, 9 - ручной ввод): "
-        read -r choice
-
-        case "$choice" in
-            [0-9]) ;;
-            *) 
-                printf "  ${red}Некорректный${reset} ввод. Пожалуйста, введите число\n"
-                sleep 1
-                continue
-                ;;
-        esac
-
-        if [ "$choice" = "0" ]; then
+        if [ "$REPLY_KEY" = "0" ]; then
             bypass_xray="true"
             printf "  Загрузка Xray ${yellow}пропущена${reset}\n"
             return
         fi
 
-        if [ "$choice" = "9" ]; then
-            printf "  Введите версию Xray для загрузки (например: v26.6.1): "
-            read -r version_selected
-            if [ -z "$version_selected" ]; then
-                printf "  ${red}Ошибка${reset}: Версия не может быть пустой\n"
-                sleep 1
-                continue
-            fi
-            version_selected=$(echo "$version_selected" | sed 's/^v//')
+        if [ "$REPLY_KEY" = "m" ]; then
+            ask_value "Введите версию Xray для загрузки (например: v26.6.1)" || return
+            version_selected=$(echo "$REPLY_VALUE" | sed 's/^v//')
             version_selected="v$version_selected"
         else
-            version_selected=$(echo "$RELEASE_TAGS" | awk -v line="$choice" 'NR == line {print $0; exit}')
-            if [ -z "$version_selected" ]; then
-                printf "  Выбранный номер ${red}вне диапазона.${reset} Пожалуйста, попробуйте снова\n"
-                sleep 1
-                continue
-            fi
+            version_selected=$(echo "$RELEASE_TAGS" | awk -v line="$REPLY_KEY" 'NR == line {print $0; exit}')
             [ "$USE_JSDELIVR" = "true" ] && version_selected="v$version_selected"
         fi
 

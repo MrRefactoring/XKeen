@@ -1,27 +1,13 @@
 # Функция для удаления GeoIPSET
 delete_geoipset() {
-    while true; do
-        printf "\n  Желаете удалить российские IP-адреса из исключений проксирования?\n\n"
-        printf "     1. Да. Загруженные файлы подсетей будут удалены, а списки очищены\n"
-        printf "     0. Нет. Отмена удаления\n\n"
-        printf "  Ваш выбор: "
-        read -r choice
-        
-        case "$choice" in
-            0)
-                echo
-                printf "  Отмена удаления списков GeoIPSET.\n\n"
-                return 0
-                ;;
-            1)
-                echo
-                break
-                ;;
-            *)
-                printf "  Неверный ввод. Пожалуйста, введите 1 или 0.\n"
-                ;;
-        esac
-    done
+    if ! ask_yesno "Желаете удалить российские IP-адреса из исключений проксирования?" \
+        "Да. Загруженные файлы подсетей будут удалены, а списки очищены" \
+        "Нет. Отмена удаления"; then
+        echo
+        printf "  Отмена удаления списков GeoIPSET.\n\n"
+        return 0
+    fi
+    echo
 
     ipset flush geo_exclude 2>/dev/null
     ipset flush geo_exclude6 2>/dev/null
