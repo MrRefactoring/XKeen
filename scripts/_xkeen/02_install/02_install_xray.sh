@@ -7,7 +7,7 @@ install_xray() {
 
     # Проверка наличия архива Xray
     if [ ! -f "$xray_archive" ]; then
-        echo -e "  ${red}Ошибка${reset}: Архив Xray не найден в '$tmp_ram'"
+        echo -e "  ${red}✗ Ошибка${reset}: Архив Xray не найден в '$tmp_ram'"
         return 1
     fi
 
@@ -26,7 +26,7 @@ install_xray() {
         rm -f "$xray_archive"
         # Гарантированно убираем возможный маркер незавершенного файла перед восстановлением бэкапа
         rm -f "$install_dir/xray"
-        echo -e "  ${red}Ошибка${reset}: Не удалось распаковать архив Xray"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось распаковать архив Xray"
         [ -n "$_err" ] && echo -e "  Подробности: $_err"
         case "$_err" in
             *"No space left"*|*"ENOSPC"*|*"места"*)
@@ -43,7 +43,7 @@ install_xray() {
     [ "$softfloat" = "true" ] && [ -f "$xtmp_dir/xray_softfloat" ] && bin_source="$xtmp_dir/xray_softfloat"
 
     if [ ! -f "$bin_source" ]; then
-        echo -e "  ${red}Ошибка${reset}: Бинарный файл Xray не найден в архиве"
+        echo -e "  ${red}✗ Ошибка${reset}: Бинарный файл Xray не найден в архиве"
         rm -f "$install_dir/xray"
         [ -f "$install_dir/xray_bak" ] && mv "$install_dir/xray_bak" "$install_dir/xray" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Xray"
@@ -55,7 +55,7 @@ install_xray() {
     # Валидация ELF-сигнатуры (защита от обрезанного unzip-вывода)
     elf_magic="$(hexdump -n 4 -e '4/1 "%02x"' "$bin_source" 2>/dev/null)"
     if [ "$elf_magic" != "7f454c46" ]; then
-        echo -e "  ${red}Ошибка${reset}: Распакованный файл Xray не является ELF-бинарником (повреждён или не докачан)"
+        echo -e "  ${red}✗ Ошибка${reset}: Распакованный файл Xray не является ELF-бинарником (повреждён или не докачан)"
         rm -f "$install_dir/xray"
         [ -f "$install_dir/xray_bak" ] && mv "$install_dir/xray_bak" "$install_dir/xray" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Xray"
@@ -68,7 +68,7 @@ install_xray() {
     sz="$(wc -c < "$bin_source" 2>/dev/null)"
     case "$sz" in ''|*[!0-9]*) sz=0 ;; esac
     if [ "$sz" -lt 1048576 ]; then
-        echo -e "  ${red}Ошибка${reset}: Распакованный файл Xray подозрительно мал (${sz} B) — вероятно, обрезан"
+        echo -e "  ${red}✗ Ошибка${reset}: Распакованный файл Xray подозрительно мал (${sz} B) — вероятно, обрезан"
         rm -f "$install_dir/xray"
         [ -f "$install_dir/xray_bak" ] && mv "$install_dir/xray_bak" "$install_dir/xray" && \
             echo -e "  ${yellow}Восстановлен${reset} предыдущий бинарник Xray"
@@ -82,7 +82,7 @@ install_xray() {
         _err="$(cat "$mv_err" 2>/dev/null)"
         rm -f "$mv_err"
         rm -f "$install_dir/xray"
-        echo -e "  ${red}Ошибка${reset}: Не удалось переместить Xray в $install_dir"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось переместить Xray в $install_dir"
         [ -n "$_err" ] && echo -e "  Подробности: $_err"
         case "$_err" in
             *"No space left"*|*"ENOSPC"*|*"места"*)
@@ -101,7 +101,7 @@ install_xray() {
 
     # Финальная проверка: бинарник существует, исполняем, запускается
     if [ ! -x "$install_dir/xray" ] || ! "$install_dir/xray" version >/dev/null 2>&1; then
-        echo -e "  ${red}Ошибка${reset}: Установленный Xray не запускается (повреждён или несовместим с архитектурой)"
+        echo -e "  ${red}✗ Ошибка${reset}: Установленный Xray не запускается (повреждён или несовместим с архитектурой)"
         rm -f "$install_dir/xray" "$xray_archive"
         rm -rf "$xtmp_dir"
         [ -f "$install_dir/xray_bak" ] && mv "$install_dir/xray_bak" "$install_dir/xray" && \

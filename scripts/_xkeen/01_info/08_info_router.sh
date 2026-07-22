@@ -31,7 +31,7 @@ info_firmware() {
 
     if [ -z "$json_data" ]; then
         echo
-        echo -e "  ${red}Ошибка${reset}: Не удалось получить данные о версии прошивки"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось получить данные о версии прошивки"
         exit 1
     fi
 
@@ -43,7 +43,7 @@ info_firmware() {
     fi
 
     if ! echo "$major_version" | grep -Eq '^[0-9]+$'; then
-        clear
+        smart_clear
         echo
         echo -e "  ${yellow}Предупреждение${reset}: Не удалось определить версию KeeneticOS"
         major_version=0
@@ -61,29 +61,13 @@ info_firmware() {
         echo -e "  ${red}=============================================${reset}"
         echo
         
-        while true; do
-            echo "  Выберите действие:"
-            echo
-            echo -e "  1) Продолжить установку ${red}на свой страх и риск${reset}"
-            echo "  0) Отмена установки"
-            echo
-            printf "  Введите ваш выбор: "
-            read -r user_input
-
-            case "$user_input" in
-                1)
-                    echo "  Продолжаем установку..."
-                    break
-                    ;;
-                0)
-                    echo "  Установка отменена пользователем"
-                    exit 0
-                    ;;
-                *)
-                    echo "  Неверный ввод. Пожалуйста, введите 1 или 0."
-                    echo
-                    ;;
-            esac
-        done
+        if ask_yesno "Выберите действие:" \
+            "Продолжить установку ${red}на свой страх и риск${reset}" \
+            "Отмена установки"; then
+            echo "  Продолжаем установку..."
+        else
+            echo "  Установка отменена пользователем"
+            exit 0
+        fi
     fi
 }

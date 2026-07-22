@@ -11,6 +11,10 @@ main_dir="$script_dir/.xkeen"
 # Модуль информации
 . "$xinfo_dir/00_info_import.sh"
 
+# Слой диалога с пользователем. Загружается до модулей информации, установки
+# и удаления, потому что все они запрашивают подтверждения через ask_*.
+. "$xtools_dir/05_tools_choice/00_choice_ask.sh"
+
 # Mirror-fallback helper. Загружается до install-модуля, потому что
 # install-модуль (04_install_geofile, 05_install_geoipset) вызывает
 # fetch_with_mirrors напрямую.

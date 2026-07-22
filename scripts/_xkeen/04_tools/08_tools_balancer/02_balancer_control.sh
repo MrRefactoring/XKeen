@@ -163,49 +163,74 @@ sb_status() {
     else
         echo -e "  Балансировка по скорости: ${yellow}выключена${reset}"
     fi
-    echo -e "  Балансировщик: ${yellow}$sb_balancer${reset}   Интервал: ${yellow}$sb_interval${reset} мин   Гистерезис: ${yellow}$sb_hysteresis${reset}%"
-    if sb_api_alive; then
-        echo -e "  Текущая нода: ${yellow}$(sb_current_target)${reset}"
+    echo -e "  Балансировщик: ${yellow}$sb_balancer${reset}   Интервал: ${yellow}$sb_interval${reset} мин   Порог переключения: ${yellow}$sb_hysteresis${reset}%"
+
+    # «Текущая нода» — единственное живое состояние: за ним идёт запрос к Xray
+    # (bi заодно и проба живости, отдельный sb_api_alive не нужен). Старт бинаря
+    # xray не мгновенный, поэтому на TTY показываем плейсхолдер «получаю…» и
+    # перетираем его результатом: \r — в начало строки, \033[K гасит хвост. Без
+    # TTY (пайп, лог) управляющих последовательностей не печатаем.
+    local cur tty=0
+    [ -t 1 ] && tty=1
+    [ "$tty" = 1 ] && printf '  Текущая нода: %sполучаю…%s' "$italic" "$reset"
+    cur=$(sb_current_target)
+    [ "$tty" = 1 ] && printf '\r\033[K'
+    if [ -n "$cur" ]; then
+        echo -e "  Текущая нода: ${yellow}$cur${reset}"
     else
-        echo -e "  api Xray (${yellow}$sb_api_addr${reset}) недоступен"
+        echo -e "  Текущая нода: ${yellow}—${reset}  (api недоступен либо выбор ещё не сделан)"
     fi
+
     if [ -f "$sb_log_file" ]; then
         echo "  Последние события:"
         tail -n 8 "$sb_log_file" | sed 's/^/    /'
     fi
 }
 
-# Интерактивное меню (стиль main: printf + read + case).
+# Пауза «нажмите Enter» — даёт прочитать вывод действия до того, как следующая
+# итерация меню очистит экран. Без TTY (тест, cron) сразу возвращается и ввод
+# не трогает.
+sb_pause() {
+    [ -t 0 ] || return 0
+    local _k
+    printf '\n  %bНажмите Enter для продолжения…%b ' "$italic" "$reset"
+    read -r _k 2>/dev/null || true
+}
+
+# Интерактивное меню через слой ask_one (стрелки/номера, EOF-безопасно).
+# In-place: на TTY экран очищается в начале каждой итерации, поэтому меню
+# обновляется НА МЕСТЕ, а не накапливает блоки статуса вниз. Вывод действия
+# (вкл/выкл/замер) показывается и удерживается паузой до Enter, затем меню
+# перерисовывается уже с обновлённым статусом. Очистка — только под TTY,
+# чтобы не сорить управляющими последовательностями в пайп/лог.
 sb_menu() {
-    local choice
+    local toggle_label
     while true; do
-        sb_status
-        speed_balancer_settings
-        echo
-        if [ "$sb_enabled" = "true" ]; then
-            printf '     1. Выключить балансировку\n'
-        else
-            printf '     1. Включить балансировку\n'
-        fi
-        printf '     2. Прогнать замер сейчас\n'
-        printf '     0. Выход\n\n'
-        printf '  Ваш выбор: '
-        read -r choice
-        case "$choice" in
+        [ -t 1 ] && printf '\033[H\033[J'
+        sb_status                       # уже подгружает настройки (sb_enabled)
+        [ "$sb_enabled" = "true" ] && toggle_label="Выключить балансировку" \
+                                   || toggle_label="Включить балансировку"
+
+        # «Прогнать замер» показываем только на включённой балансировке — без
+        # неё замерять нечего. «Выход» помечен default: слой ask_* трактует
+        # одиночный Esc (и q, и пустой Enter) как выбор пункта по умолчанию,
+        # так что из меню можно выйти по Esc.
+        set -- "1|$toggle_label"
+        [ "$sb_enabled" = "true" ] && set -- "$@" "2|Прогнать замер сейчас"
+        set -- "$@" "|" "0|Выход|default"
+
+        ask_one "Выберите действие:" "$@" || return 0
+
+        case "$REPLY_KEY" in
             0) return 0 ;;
             1)
-                speed_balancer_settings
                 if [ "$sb_enabled" = "true" ]; then sb_disable; else sb_enable; fi
+                sb_pause
                 ;;
             2)
-                speed_balancer_settings
-                if [ "$sb_enabled" = "true" ]; then
-                    echo -e "  ${yellow}Замер...${reset}"; sb_tick; echo -e "  ${green}✔${reset} Замер завершён."
-                else
-                    echo "  Сначала включите балансировку."
-                fi
+                echo -e "  ${yellow}Замер...${reset}"; sb_tick; echo -e "  ${green}✔${reset} Замер завершён."
+                sb_pause
                 ;;
-            *) echo "  Неверный ввод. Введите 1, 2 или 0." ;;
         esac
     done
 }

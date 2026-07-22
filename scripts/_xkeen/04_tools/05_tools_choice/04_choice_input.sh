@@ -1,27 +1,6 @@
 # Функция для выбора пользователя между "Да" и "Нет" с номерами 1 и 0
 input_concordance_list() {
-    prompt_message="  $1"
-    error_message="  ${yellow}Пожалуйста, выберите вариант, введя номер 1 (Да) или 0 (Нет)${reset}"
-
-    echo
-    echo -e "$prompt_message"
-    echo "     1. Да"
-    echo "     0. Нет"
-
-    while true; do
-        echo
-        read -r -p "  Введите номер: " user_input
-
-        case "$user_input" in
-            1) return 0 ;;
-            0) return 1 ;;
-            *)
-                echo
-                echo -e "  $error_message"
-                continue
-                ;;
-        esac
-    done
+    ask_yesno "$1"
 }
 
 toggle_param() {
@@ -32,7 +11,7 @@ toggle_param() {
 
     echo
     if [ ! -f "$initd_file" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не найден файл ${yellow}S05xkeen${reset}"
+        echo -e "  ${red}✗ Ошибка${reset}: Не найден файл ${yellow}S05xkeen${reset}"
         return 1
     fi
 
@@ -60,35 +39,25 @@ toggle_param() {
 
         if [ "$current_state" = "on" ]; then
             echo -e "  ${green}Включено${reset}"
-            echo
-            echo "     1. Отключить"
-            echo "     0. Оставить без изменений"
             desired_state="off"
+            toggle_action="Отключить"
         else
             echo -e "  ${red}Отключено${reset}"
-            echo
-            echo "     1. Включить"
-            echo "     0. Оставить без изменений"
             desired_state="on"
+            toggle_action="Включить"
         fi
 
-        echo
-        while true; do
-            read -r -p "  Ваш выбор: " choice
-            case "$choice" in
-                0) 
-                    echo
-                    if [ "$current_state" = "on" ]; then
-                        echo -e "  Состояние ${description} ${green}оставлено включённым${reset}"
-                    else
-                        echo -e "  Состояние ${description} ${red}оставлено отключённым${reset}"
-                    fi
-                    return 0 
-                    ;;
-                1) break ;;
-                *) echo -e "  ${red}Некорректный ввод${reset}" ;;
-            esac
-        done
+        ask_one "" "1|$toggle_action" "0|Оставить без изменений|default"
+
+        if [ "$REPLY_KEY" = "0" ]; then
+            echo
+            if [ "$current_state" = "on" ]; then
+                echo -e "  Состояние ${description} ${green}оставлено включённым${reset}"
+            else
+                echo -e "  Состояние ${description} ${red}оставлено отключённым${reset}"
+            fi
+            return 0
+        fi
     fi
 
     if awk -v param="$param" -v value="$desired_state" '
@@ -118,29 +87,11 @@ toggle_param() {
         add_chmod_init
     else
         echo
-        echo -e "  ${red}Ошибка${reset} при изменении параметра $param"
+        echo -e "  ${red}✗ Ошибка${reset} при изменении параметра $param"
         return 1
     fi
 }
 
 choice_menu() {
-    title="$1"
-    option_yes="$2"
-    option_no="$3"
-
-    echo
-    [ -n "$title" ] && echo -e "  $title"
-    echo
-    echo "     1. $option_yes"
-    echo "     0. $option_no"
-    echo
-
-    while true; do
-        read -r -p "  Ваш выбор: " choice
-        case "$choice" in
-            1) return 0 ;;
-            0) return 1 ;;
-            *) echo -e "  ${red}Некорректный ввод${reset}" ;;
-        esac
-    done
+    ask_yesno "$1" "$2" "$3"
 }

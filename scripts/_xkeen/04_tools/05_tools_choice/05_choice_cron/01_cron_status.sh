@@ -39,68 +39,46 @@ choice_update_cron() {
         echo -e "  Время обновления ${yellow}геофайлов${reset} установлено на: ${green}$(format_cron_time "$existing_cron")${reset}"
     fi
 
-    while true; do
-        choice_cancel_cron_select=false
-        choice_geofile_cron_select=false
-        choice_delete_all_cron_select=false
-        invalid_choice=false
+    choice_cancel_cron_select=false
+    choice_geofile_cron_select=false
+    choice_delete_all_cron_select=false
 
-        echo
-        echo -e "  Выберите номер действия для автообновления ${yellow}GeoFile/GeoIPSET${reset}"
-        echo
+    [ "$info_update_geofile_cron" != "installed" ] && geofile_choice="Включить" || geofile_choice="Обновить"
 
-        [ "$info_update_geofile_cron" != "installed" ] && geofile_choice="Включить" || geofile_choice="Обновить"
-        echo "     1. $geofile_choice задачу"
-        echo "     0. Пропустить"
+    # Выключить автообновление можно только если задача уже заведена. Раньше
+    # недоступный пункт всё равно принимался, печатал ошибку и уводил на
+    # повторный проход — теперь он показан неактивным и не выбирается.
+    if [ "$has_updatable_cron_tasks" = true ]; then
+        disable_cron_item="2|Выключить автообновление"
+    else
+        disable_cron_item="2|Автообновление не включено|dim"
+    fi
 
-        [ "$has_updatable_cron_tasks" = true ] && echo && echo "     2. Выключить автообновление"
-        echo
+    ask_one "Выберите номер действия для автообновления ${yellow}GeoFile/GeoIPSET${reset}" \
+        "1|$geofile_choice задачу" \
+        "$disable_cron_item" \
+        "|" \
+        "0|Пропустить|default"
 
-        while true; do
-            read -r -p "  Ваш выбор: " update_choices
-            update_choices=$(echo "$update_choices" | sed 's/,/, /g')
-
-            if echo "$update_choices" | grep -qE '^[0-2]$'; then
-                break
+    case "$REPLY_KEY" in
+        1)
+            choice_geofile_cron_select=true
+            if [ "$info_update_geofile_cron" = "installed" ]; then
+                echo -e "  ${yellow}Будет выполнено${reset} обновление задачи GeoFile/GeoIPSET"
             else
-                echo -e "  ${red}Некорректный ввод.${reset} Выберите один из предложенных вариантов"
-                echo
+                echo -e "  ${yellow}Будет выполнено${reset} включение задачи GeoFile/GeoIPSET"
             fi
-        done
-
-        for choice in $update_choices; do
-            case "$choice" in
-                1)
-                    choice_geofile_cron_select=true
-                    if [ "$info_update_geofile_cron" = "installed" ]; then
-                        echo -e "  ${yellow}Будет выполнено${reset} обновление задачи GeoFile/GeoIPSET"
-                    else
-                        echo -e "  ${yellow}Будет выполнено${reset} включение задачи GeoFile/GeoIPSET"
-                    fi
-                    ;;
-                0)
-                    choice_cancel_cron_select=true
-                    echo "  Выполнен пропуск настройки автообновления"
-                    echo
-                    return
-                    ;;
-                2)
-                    if [ "$has_updatable_cron_tasks" = true ]; then
-                        delete_cron_geofile
-                        echo -e "  Автообновление баз GeoFile/GeoIPSET ${green}выключено${reset}"
-                        echo
-                    else
-                        echo -e "  ${red}Автообновление баз GeoFile/GeoIPSET не включено${reset}. Выберите другой пункт"
-                        echo
-                        invalid_choice=true
-                    fi
-                    ;;
-                *)
-                    invalid_choice=true
-                    ;;
-            esac
-        done
-
-        [ "$invalid_choice" = true ] || break
-    done
+            ;;
+        2)
+            delete_cron_geofile
+            echo -e "  Автообновление баз GeoFile/GeoIPSET ${green}выключено${reset}"
+            echo
+            ;;
+        0)
+            choice_cancel_cron_select=true
+            echo "  Выполнен пропуск настройки автообновления"
+            echo
+            return
+            ;;
+    esac
 }

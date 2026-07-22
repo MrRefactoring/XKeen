@@ -24,7 +24,7 @@ core_conf_test() {
     local path="$install_dir/$core"
 
     if [ ! -f "$path" ] || [ ! -x "$path" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не найден или повреждён исполняемый файл прокси-клиента ${green}$core${reset}"
+        echo -e "  ${red}✗ Ошибка${reset}: Не найден или повреждён исполняемый файл прокси-клиента ${green}$core${reset}"
         return 1
     fi
 

@@ -34,9 +34,9 @@ download_xkeen() {
 
     if [ "$success" -ne 0 ]; then
         if [ "$max_attempts" -gt 1 ]; then
-            printf "  ${red}Ошибка${reset}: Не удалось загрузить XKeen после %d попыток\n" "$max_attempts"
+            printf "  ${red}✗ Ошибка${reset}: Не удалось загрузить XKeen после %d попыток\n" "$max_attempts"
         else
-            printf "  ${red}Ошибка${reset}: Не удалось загрузить XKeen\n"
+            printf "  ${red}✗ Ошибка${reset}: Не удалось загрузить XKeen\n"
         fi
         exit 1
     fi

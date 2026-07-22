@@ -32,40 +32,41 @@ choice_geodata() {
         eval "choice_delete_${type}_${src3}_select=false"
         invalid_choice=false
 
-        echo 
-        echo -e "  Выберите номер или номера действий через пробел для ${yellow}${type_name}${reset}"
-        echo 
+        # Пункты 1 и 2 остаются выбираемыми, даже когда действие выглядит
+        # ненужным: в этом случае они предлагают обратную операцию —
+        # установить вместо обновления и наоборот. Поэтому здесь курсив
+        # только в подписи, а не пометка dim, которая запретила бы выбор.
+        if [ "$has_missing_bases" = true ]; then
+            item_install="1|Установить отсутствующие и обновить установленные ${type_name}"
+        else
+            item_install="1|${italic}Все доступные ${type_name} установлены${reset}"
+        fi
 
-        [ "$has_missing_bases" = true ] && echo "     1. Установить отсутствующие и обновить установленные ${type_name}" || echo -e "     1. ${italic}Все доступные ${type_name} установлены${reset}"
-        [ "$has_updatable_bases" = true ] && echo "     2. Обновить установленные ${type_name}" || echo -e "     2. ${italic}Нет доступных ${type_name} для обновления${reset}"
+        if [ "$has_updatable_bases" = true ]; then
+            item_update="2|Обновить установленные ${type_name}"
+            item_delete="6|Удалить установленные ${type_name}"
+        else
+            item_update="2|${italic}Нет доступных ${type_name} для обновления${reset}"
+            item_delete="6|Нечего удалять|dim"
+        fi
 
         [ "$(eval echo \$update_refilter_${type}_msg)" = "true" ] && refilter_choice="Обновить" || refilter_choice="Установить"
         [ "$(eval echo \$update_v2fly_${type}_msg)" = "true" ] && v2fly_choice="Обновить" || v2fly_choice="Установить"
         [ "$(eval echo \$update_${src3}_${type}_msg)" = "true" ] && src3_choice="Обновить" || src3_choice="Установить"
 
-        echo "     3. $refilter_choice Re:filter"
-        echo "     4. $v2fly_choice v2fly"
-        echo "     5. $src3_choice ${src3_name}"
-        echo 
-        echo "     0. Пропустить"
+        ask_many "Выберите номер или номера действий через пробел для ${yellow}${type_name}${reset}" \
+            "$item_install" \
+            "$item_update" \
+            "3|$refilter_choice Re:filter" \
+            "4|$v2fly_choice v2fly" \
+            "5|$src3_choice ${src3_name}" \
+            "|" \
+            "$item_delete" \
+            "|" \
+            "ok|${green}✓${reset} Подтвердить выбор|confirm" \
+            "0|Пропустить|default" || return
 
-        [ "$has_updatable_bases" = true ] && echo && echo "     6. Удалить установленные ${type_name}"
-
-        echo
-        valid_input=true
-
-        while true; do
-            read -r -p "  Ваш выбор: " data_choices
-            data_choices=$(echo "$data_choices" | sed 's/,/, /g')
-
-            if echo "$data_choices" | grep -qE '^[0-6 ]+$'; then
-                break
-            else
-                echo -e "  ${red}Некорректный ввод.${reset} Пожалуйста, выберите снова"
-            fi
-        done
-
-        for choice in $data_choices; do
+        for choice in $REPLY_KEYS; do
             case "$choice" in
                 1)
                     if [ "$has_missing_bases" = "false" ]; then

@@ -98,103 +98,93 @@ help_xkeen() {
 
 # Информация о способах угостить разработчиков вкусным кофе
 author_donate() {
-    echo
-    echo "  Выберите удобный для Вас способ:"
-    echo
-    echo -e "  Поддержать автора оригинального XKeen (${green}Skrill0${reset})"
-    echo "     1. Т-Банк"
-    echo "     2. DonationAlerts/ЮMoney"
-    echo "     3. Crypto"
-    echo
-    echo -e "  Поддержать разработчика форка XKeen (${green}jameszero${reset})"
-    echo "     4. Карта МИР"
-    echo "     5. CloudTips/ЮMoney"
-    echo "     6. Crypto"
-    echo
-    echo "     0. Отмена"
-    echo
+    ask_one "Выберите удобный для Вас способ:" \
+        "|Поддержать автора оригинального XKeen (${green}Skrill0${reset})" \
+        "1|Т-Банк" \
+        "2|DonationAlerts/ЮMoney" \
+        "3|Crypto" \
+        "|Поддержать разработчика форка XKeen (${green}jameszero${reset})" \
+        "4|Карта МИР" \
+        "5|CloudTips/ЮMoney" \
+        "6|Crypto" \
+        "|" \
+        "0|Отмена|default"
 
-    while true; do
-        read -r -p "  Ваш выбор: " choice
-        case "$choice" in
-            1)
-                echo
-                echo -e "  ${yellow}Прямая ссылка${reset}"
-                echo "     https://www.tbank.ru/rm/krasilnikova.alina18/G4Z9433893"
-                echo
-                echo -e "  ${yellow}Номер карты${reset}"
-                echo "     2200 7008 8716 3128"
-                echo
-                return 0
-                ;;
-            2)
-                echo
-                echo -e "  ${yellow}Прямая ссылка DonationAlerts${reset}"
-                echo "     https://www.donationalerts.com/r/skrill0"
-                echo
-                echo -e "  ${yellow}Прямая ссылка ЮMoney${reset}"
-                echo "     https://yoomoney.ru/to/410018052017678"
-                echo
-                echo -e "  ${yellow}Номер ЮMoney-кошелька${reset}"
-                echo "     4100 1805 201 7678"
-                echo
-                return 0
-                ;;
-            3)
-                echo
-                echo -e "  ${yellow}USDT${reset}, TRC20"
-                echo "     tsc6emx5khk4cpyfkwj7dusybokravxs3m"
-                echo
-                echo -e "  ${yellow}USDT${reset}, ERC20 и BEP20"
-                echo "     0x4a0369a762e3a23cc08f0bbbf39e169a647a5661"
-                echo
-                echo -e "  ${light_blue}Уточните актуальность реквизитов перед переводом${reset}"
-                echo
-                return 0
-                ;;
-            4)
-                echo
-                echo -e "  ${yellow}Карта МИР${reset} ЮMoney"
-                echo "     2204 1201 2976 4110"
-                echo
-                return 0
-                ;;
-            5)
-                echo
-                echo -e "  ${yellow}Прямая ссылка CloudTips${reset}"
-                echo "     https://pay.cloudtips.ru/p/7edb30ec"
-                echo
-                echo -e "  ${yellow}Прямая ссылка ЮMoney${reset}"
-                echo "     https://yoomoney.ru/to/41001350776240"
-                echo
-                echo -e "  ${yellow}Номер ЮMoney-кошелька${reset}"
-                echo "     4100 1350 7762 40"
-                echo
-                return 0
-                ;;
-            6)
-                echo
-                echo -e "  ${yellow}USDT${reset}, TRC20"
-                echo "     TQhy1LbuGe3Bz7EVrDYn67ZFLDjDBa2VNX"
-                echo
-                echo -e "  ${yellow}USDT${reset}, ERC20"
-                echo "     0x6a5DF3b5c67E1f90dF27Ff3bd2a7691Fad234EE2"
-                echo
-                echo -e "  ${light_blue}Уточните актуальность реквизитов перед переводом${reset}"
-                echo
-                return 0
-                ;;
-            0)
-                echo
-                echo -e "  ${yellow}Спасибо${reset}, что ознакомились с возможностью поддержать разработчиков"
-                echo
-                return 0
-                ;;
-            *)
-                echo -e "  ${red}Некорректный ввод${reset}"
-                ;;
-        esac
-    done
+    case "$REPLY_KEY" in
+        1)
+            echo
+            echo -e "  ${yellow}Прямая ссылка${reset}"
+            echo "     https://www.tbank.ru/rm/krasilnikova.alina18/G4Z9433893"
+            echo
+            echo -e "  ${yellow}Номер карты${reset}"
+            echo "     2200 7008 8716 3128"
+            echo
+            return 0
+            ;;
+        2)
+            echo
+            echo -e "  ${yellow}Прямая ссылка DonationAlerts${reset}"
+            echo "     https://www.donationalerts.com/r/skrill0"
+            echo
+            echo -e "  ${yellow}Прямая ссылка ЮMoney${reset}"
+            echo "     https://yoomoney.ru/to/410018052017678"
+            echo
+            echo -e "  ${yellow}Номер ЮMoney-кошелька${reset}"
+            echo "     4100 1805 201 7678"
+            echo
+            return 0
+            ;;
+        3)
+            echo
+            echo -e "  ${yellow}USDT${reset}, TRC20"
+            echo "     tsc6emx5khk4cpyfkwj7dusybokravxs3m"
+            echo
+            echo -e "  ${yellow}USDT${reset}, ERC20 и BEP20"
+            echo "     0x4a0369a762e3a23cc08f0bbbf39e169a647a5661"
+            echo
+            echo -e "  ${light_blue}Уточните актуальность реквизитов перед переводом${reset}"
+            echo
+            return 0
+            ;;
+        4)
+            echo
+            echo -e "  ${yellow}Карта МИР${reset} ЮMoney"
+            echo "     2204 1201 2976 4110"
+            echo
+            return 0
+            ;;
+        5)
+            echo
+            echo -e "  ${yellow}Прямая ссылка CloudTips${reset}"
+            echo "     https://pay.cloudtips.ru/p/7edb30ec"
+            echo
+            echo -e "  ${yellow}Прямая ссылка ЮMoney${reset}"
+            echo "     https://yoomoney.ru/to/41001350776240"
+            echo
+            echo -e "  ${yellow}Номер ЮMoney-кошелька${reset}"
+            echo "     4100 1350 7762 40"
+            echo
+            return 0
+            ;;
+        6)
+            echo
+            echo -e "  ${yellow}USDT${reset}, TRC20"
+            echo "     TQhy1LbuGe3Bz7EVrDYn67ZFLDjDBa2VNX"
+            echo
+            echo -e "  ${yellow}USDT${reset}, ERC20"
+            echo "     0x6a5DF3b5c67E1f90dF27Ff3bd2a7691Fad234EE2"
+            echo
+            echo -e "  ${light_blue}Уточните актуальность реквизитов перед переводом${reset}"
+            echo
+            return 0
+            ;;
+        0)
+            echo
+            echo -e "  ${yellow}Спасибо${reset}, что ознакомились с возможностью поддержать разработчиков"
+            echo
+            return 0
+            ;;
+    esac
 }
 
 # Обратная связь с разработчиками

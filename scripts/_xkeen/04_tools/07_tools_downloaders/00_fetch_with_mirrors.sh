@@ -14,6 +14,10 @@
 
 _mirror_cache="/tmp/.xkeen_mirror_cache"
 _mirror_ttl=60
+
+# Минимальный размер осмысленной загрузки. Всё, что меньше, — почти
+# наверняка страница ошибки прокси, отданная под кодом 200.
+_MIRROR_MIN_SIZE=24576
 _DIRECT_TOKEN="__direct__"
 
 # Чтение закэшированного префикса. stdout = префикс ("" для direct),
@@ -38,6 +42,72 @@ _mirror_cache_write() {
     _w_pfx="$1"
     [ -z "$_w_pfx" ] && _w_pfx="$_DIRECT_TOKEN"
     printf '%s %s\n' "$(date +%s)" "$_w_pfx" > "$_mirror_cache" 2>/dev/null
+}
+
+# Человекочитаемое имя источника. Результат в _mirror_name.
+#
+# Через глобальную переменную, а не через stdout: подстановка команд
+# создала бы субшелл, а вызывается это из циклов, чей stdout занят
+# полезными данными.
+_mirror_label() {
+    _ml_p="$1"
+    if [ -z "$_ml_p" ] || [ "$_ml_p" = "$_DIRECT_TOKEN" ]; then
+        _mirror_name="напрямую с GitHub"
+        return
+    fi
+    _mirror_name=${_ml_p#https://}
+    _mirror_name=${_mirror_name#http://}
+    _mirror_name=${_mirror_name%%/*}
+}
+
+# Сколько источников в списке. Результат в _mirror_count.
+_mirror_total() {
+    _mirror_count=0
+    while IFS= read -r _mt_line; do
+        [ -n "$_mt_line" ] && _mirror_count=$((_mirror_count + 1))
+    done <<EOF
+$1
+EOF
+}
+
+# Объявление попытки и её исхода.
+#
+# Печать идёт в stderr по двум причинам: stdout некоторых из этих циклов
+# несёт полезные данные и читается через $(), а прогресс-бар curl тоже
+# пишет в stderr — так сообщения не перемешиваются с данными.
+#
+# Без этих строк перебор недоступных зеркал выглядит как зависание:
+# каждая попытка молчит до 10 секунд по --connect-timeout, а их три.
+_mirror_announce() {
+    _mirror_label "$2"
+    printf '    [%s/%s] %s\n' "$1" "$3" "$_mirror_name" >&2
+}
+
+_mirror_failed() {
+    printf '          %bнедоступно%b\n' "$yellow" "$reset" >&2
+}
+
+# Подготовка очередной попытки: разворачивает токен прямой загрузки,
+# собирает адрес и объявляет попытку.
+#
+# Вход: $1 — префикс из _mirror_order, $2 — url, $3 — номер попытки,
+# $4 — сколько источников всего.
+# Выход: _mirror_prefix (пустой для прямой загрузки) и _mirror_url.
+#
+# Вынесено, потому что эти четыре строки были скопированы в трёх циклах
+# и уже начали расходиться: в одной копии префикс склеивался через
+# ${prefix%/}, в двух других — без него.
+_mirror_candidate() {
+    _mirror_prefix="$1"
+    [ "$_mirror_prefix" = "$_DIRECT_TOKEN" ] && _mirror_prefix=""
+
+    if [ -n "$_mirror_prefix" ]; then
+        _mirror_url="${_mirror_prefix%/}/$2"
+    else
+        _mirror_url="$2"
+    fi
+
+    _mirror_announce "$3" "$_mirror_prefix" "$4"
 }
 
 # Список префиксов для попыток, по одному на строку, в порядке приоритета.
@@ -112,20 +182,26 @@ fetch_with_mirrors() {
 
     rm -f "$_fwm_tmp"
     _fwm_orders=$(_mirror_order)
+    _mirror_total "$_fwm_orders"
+    _fwm_total="$_mirror_count"
+    _fwm_n=0
     while IFS= read -r _fwm_prefix; do
-        [ "$_fwm_prefix" = "$_DIRECT_TOKEN" ] && _fwm_prefix=""
-        if [ -n "$_fwm_prefix" ]; then
-            _fwm_fetch="$_fwm_prefix/$_fwm_url"
-        else
-            _fwm_fetch="$_fwm_url"
-        fi
-        if curl_with_timeout -fL -o "$_fwm_tmp" "$_fwm_fetch"; then
+        _fwm_n=$((_fwm_n + 1))
+        _mirror_candidate "$_fwm_prefix" "$_fwm_url" "$_fwm_n" "$_fwm_total"
+        _fwm_prefix="$_mirror_prefix"
+
+        # stdin тела цикла — heredoc со списком зеркал, поэтому сетевым
+        # вызовам он закрывается явно: иначе флаг, читающий stdin, вычерпал
+        # бы остаток списка и fallback исчез бы после первой попытки
+        if curl_with_timeout -fL -o "$_fwm_tmp" "$_mirror_url" </dev/null; then
             if "$_fwm_validator" "$_fwm_tmp" "$_fwm_min"; then
                 _fwm_winner="$_fwm_prefix"
                 break
             fi
+            printf '          %bсодержимое не прошло проверку%b\n' "$yellow" "$reset" >&2
         else
             _last_error="curl_failed"
+            _mirror_failed
         fi
         rm -f "$_fwm_tmp"
     done <<EOF
@@ -160,18 +236,17 @@ probe_with_mirrors() {
     _last_curl_rc=0
 
     _pwm_orders=$(_mirror_order)
+    _mirror_total "$_pwm_orders"
+    _pwm_total="$_mirror_count"
     while IFS= read -r _pwm_prefix; do
-        [ "$_pwm_prefix" = "$_DIRECT_TOKEN" ] && _pwm_prefix=""
-        if [ -n "$_pwm_prefix" ]; then
-            _pwm_probe="$_pwm_prefix/$_pwm_url"
-        else
-            _pwm_probe="$_pwm_url"
-        fi
         _pwm_attempts=$((_pwm_attempts + 1))
-        _pwm_code=$(curl_with_timeout -I -s -L -w '%{http_code}' -o /dev/null "$_pwm_probe" 2>/dev/null)
+        _mirror_candidate "$_pwm_prefix" "$_pwm_url" "$_pwm_attempts" "$_pwm_total"
+        _pwm_prefix="$_mirror_prefix"
+        _pwm_probe="$_mirror_url"
+        _pwm_code=$(curl_with_timeout -I -s -L -w '%{http_code}' -o /dev/null "$_pwm_probe" </dev/null 2>/dev/null)
         _last_curl_rc=$?
         if [ "$_pwm_code" = "405" ]; then
-            _pwm_code=$(curl_with_timeout -s -L -r 0-0 -w '%{http_code}' -o /dev/null "$_pwm_probe" 2>/dev/null)
+            _pwm_code=$(curl_with_timeout -s -L -r 0-0 -w '%{http_code}' -o /dev/null "$_pwm_probe" </dev/null 2>/dev/null)
             _last_curl_rc=$?
         fi
         _last_http="$_pwm_code"
@@ -182,6 +257,10 @@ probe_with_mirrors() {
                 ;;
             40[0-9])
                 _pwm_fail_4xx=$((_pwm_fail_4xx + 1))
+                printf '          %bне найдено (%s)%b\n' "$yellow" "$_pwm_code" "$reset" >&2
+                ;;
+            *)
+                _mirror_failed
                 ;;
         esac
     done <<EOF
@@ -239,7 +318,7 @@ fetch_release_tags() {
         echo
         printf "  ${red}Нет доступа${reset} к ${yellow}jsDelivr${reset}\n"
         echo
-        printf "  ${red}Ошибка${reset}: Не удалось получить список релизов ни через ${yellow}GitHub API${reset}, ни через ${yellow}jsDelivr${reset}\n  Проверьте соединение с интернетом или повторите позже\n  Если ошибка сохраняется, воспользуйтесь возможностью OffLine установки:\n  https://github.com/jameszeroX/XKeen/wiki/Configuration#offline-установка\n"
+        printf "  ${red}✗ Ошибка${reset}: Не удалось получить список релизов ни через ${yellow}GitHub API${reset}, ни через ${yellow}jsDelivr${reset}\n  Проверьте соединение с интернетом или повторите позже\n  Если ошибка сохраняется, воспользуйтесь возможностью OffLine установки:\n  https://github.com/jameszeroX/XKeen/wiki/Configuration#offline-установка\n"
         echo
         exit 1
     fi
@@ -275,7 +354,7 @@ _network_probe() {
                 404) printf "  Файл ${red}не найден${reset} (404)\n" ;;
                 *)   printf "  ${yellow}Проблема с доступом${reset} (HTTP: %s)\n" "$_last_http" ;;
             esac
-            printf "  ${red}Ошибка${reset}: %s недоступен\n" "$component"
+            printf "  ${red}✗ Ошибка${reset}: %s недоступен\n" "$component"
             return 1
             ;;
         *)
@@ -288,7 +367,7 @@ _network_probe() {
             else
                 printf "  ${red}Нет соединения${reset}\n"
             fi
-            printf "  ${red}Ошибка${reset}: %s недоступен\n" "$component"
+            printf "  ${red}✗ Ошибка${reset}: %s недоступен\n" "$component"
             return 1
             ;;
     esac
@@ -312,7 +391,7 @@ _network_download() {
             printf "  Загрузка %s (Попытка %d из %d)...\n" "$component" "$attempt" "$max_attempts"
         fi
 
-        if fetch_with_mirrors "$url" "$target" 24576; then
+        if fetch_with_mirrors "$url" "$target" "$_MIRROR_MIN_SIZE"; then
             success=0
             break
         fi
@@ -328,9 +407,9 @@ _network_download() {
         return 0
     else
         if [ "$max_attempts" -gt 1 ]; then
-            printf "  ${red}Ошибка${reset}: Не удалось загрузить %s после %d попыток\n" "$component" "$max_attempts"
+            printf "  ${red}✗ Ошибка${reset}: Не удалось загрузить %s после %d попыток\n" "$component" "$max_attempts"
         else
-            printf "  ${red}Ошибка${reset}: Не удалось загрузить %s\n" "$component"
+            printf "  ${red}✗ Ошибка${reset}: Не удалось загрузить %s\n" "$component"
         fi
         return 1
     fi
@@ -340,32 +419,38 @@ _network_download() {
 _get_expected_size() {
     _ges_url="$1"
     _ges_orders=$(_mirror_order)
+    _mirror_total "$_ges_orders"
+    _ges_total="$_mirror_count"
+    _ges_n=0
+
+    # Отдельный заголовок: эта фаза перебирает те же зеркала, что и
+    # последующая загрузка, и без пометки повторные строки выглядели бы
+    # как зацикливание
+    printf '    %bОпределение размера файла%b\n' "$italic" "$reset" >&2
 
     while IFS= read -r _ges_prefix; do
-        [ "$_ges_prefix" = "$_DIRECT_TOKEN" ] && _ges_prefix=""
-        if [ -n "$_ges_prefix" ]; then
-            _ges_probe="${_ges_prefix%/}/$_ges_url"
-        else
-            _ges_probe="$_ges_url"
-        fi
+        _ges_n=$((_ges_n + 1))
+        _mirror_candidate "$_ges_prefix" "$_ges_url" "$_ges_n" "$_ges_total"
+        _ges_prefix="$_mirror_prefix"
+        _ges_probe="$_mirror_url"
 
         # Пробуем получить заголовки через HEAD-запрос
-        _ges_headers=$(curl_with_timeout -sIL "$_ges_probe" 2>/dev/null | tr -d '\r')
+        _ges_headers=$(curl_with_timeout -sIL "$_ges_probe" </dev/null 2>/dev/null | tr -d '\r')
         
         # Получаем HTTP-код последнего ответа (после редиректов)
         _ges_http=$(echo "$_ges_headers" | grep -i '^HTTP/' | tail -n 1 | awk '{print $2}')
 
         # Если сервер запрещает HEAD (405), делаем GET с range 0-0
         if [ "$_ges_http" = "405" ]; then
-            _ges_headers=$(curl_with_timeout -sL -r 0-0 -D - "$_ges_probe" -o /dev/null 2>/dev/null | tr -d '\r')
+            _ges_headers=$(curl_with_timeout -sL -r 0-0 -D - "$_ges_probe" -o /dev/null </dev/null 2>/dev/null | tr -d '\r')
             _ges_http=$(echo "$_ges_headers" | grep -i '^HTTP/' | tail -n 1 | awk '{print $2}')
             # Проверяем, что range-запрос успешен (206 Partial Content или 200 OK)
             if [ -z "$_ges_http" ] || { [ "$_ges_http" != "206" ] && [ "$_ges_http" != "200" ]; }; then
+                _mirror_failed
                 continue  # range-запрос не удался, пробуем следующий mirror
             fi
         fi
 
-        # Проверяем, что ответ успешный (2xx)
         if [ -n "$_ges_http" ] && [ "$_ges_http" -ge 200 ] 2>/dev/null && [ "$_ges_http" -lt 300 ] 2>/dev/null; then
             # Вытаскиваем Content-Length
             _ges_size=$(echo "$_ges_headers" | grep -i '^Content-Length:' | tail -n 1 | awk '{print $2}')
@@ -377,6 +462,10 @@ _get_expected_size() {
                 return 0
             fi
         fi
+
+        # Единая точка сообщения об исходе: сюда доходит любая неудачная
+        # попытка — и не-2xx, и 2xx без пригодного Content-Length
+        _mirror_failed
 
     done <<EOF
 $_ges_orders
@@ -435,10 +524,10 @@ _download_and_validate_loop() {
 
         # Вызываем fetch_with_mirrors (с валидатором или без)
         if [ -n "$validator_name" ]; then
-            fetch_with_mirrors "$url" "$tmp_file" 24576 "$validator_name"
+            fetch_with_mirrors "$url" "$tmp_file" "$_MIRROR_MIN_SIZE" "$validator_name"
             _fetch_result=$?
         else
-            fetch_with_mirrors "$url" "$tmp_file" 24576
+            fetch_with_mirrors "$url" "$tmp_file" "$_MIRROR_MIN_SIZE"
             _fetch_result=$?
         fi
 
@@ -453,11 +542,11 @@ _download_and_validate_loop() {
                 # Проверка не прошла
                 case "$_last_error" in
                     size_mismatch)
-                        printf "  ${red}Ошибка${reset}: Размер загруженного файла (%s байт) не соответствует ожидаемому (%s байт)\n" "$_last_size" "$expected_size"
+                        printf "  ${red}✗ Ошибка${reset}: Размер загруженного файла (%s байт) не соответствует ожидаемому (%s байт)\n" "$_last_size" "$expected_size"
                         printf "  Файл повреждён или загружен не полностью. Повторная попытка...\n"
                         ;;
                     *)
-                        printf "  ${red}Ошибка${reset}: %s\n" "$_last_error"
+                        printf "  ${red}✗ Ошибка${reset}: %s\n" "$_last_error"
                         ;;
                 esac
                 rm -f "$tmp_file"

@@ -21,29 +21,17 @@ preinstall_warn() {
         echo "  Убедитесь, что на ней достаточно свободного места. Сбой при такой"
         echo "  установке не является проблемой XKeen и багрепорт не будет рассмотрен"
         echo -e "  XKeen ${green}рекомендуется${reset} устанавливать на внешний ${green}USB-накопитель${reset}"
-        echo
-        echo "  1. Продолжить установку $entware_storage"
-        echo "  2. Выйти из установщика"
-        echo
+        ask_one "Выберите действие" \
+            "1|Продолжить установку $entware_storage" \
+            "2|Выйти из установщика"
 
-        while true; do
-            read -p "  Выберите действие: " choice
+        if [ "$REPLY_KEY" = "2" ]; then
+            echo
+            echo -e "  ${red}Установка отменена${reset}"
+            exit 0
+        fi
 
-            case $choice in
-                1)
-                    clear
-                    break
-                    ;;
-                2)
-                    echo
-                    echo -e "  ${red}Установка отменена${reset}"
-                    exit 0
-                    ;;
-                *)
-                    echo -e "  ${red}Некорректный ввод.${reset} Выберите один из предложенных вариантов"
-                    ;;
-            esac
-        done
+        smart_clear
     fi
 }
 
@@ -70,26 +58,22 @@ check_free_space() {
         echo -e "  Требуется: ${light_blue}${required_space} MB${reset}, доступно: ${light_blue}${free_space} MB${reset}"
         echo
 
-        echo -e "  1) Продолжить установку ${yellow}$client_name${reset} ${red}на свой страх и риск${reset}"
-        echo -e "  0) Отменить установку ${yellow}$client_name${reset} (${green}Рекомендуется${reset})"
-        echo
-        printf "  Выберите вариант: "
-        read -r response
+        # Отмена — пункт по умолчанию: при нехватке места безопаснее прервать
+        # установку, поэтому пустой Enter и недоступный ввод ведут сюда же
+        if ! ask_one "" \
+            "1|Продолжить установку ${yellow}$client_name${reset} ${red}на свой страх и риск${reset}" \
+            "0|Отменить установку ${yellow}$client_name${reset} (${green}Рекомендуется${reset})|default"; then
+            echo -e "  Установка ${yellow}$client_name${reset} отменена"
+            return 1
+        fi
 
-        case "$response" in
-            1)
-                echo "  Предупреждение проигнорировано. Продолжаем..."
-                return 0
-                ;;
-            0|"")
-                echo -e "  Установка ${yellow}$client_name${reset} отменена пользователем"
-                return 1
-                ;;
-            *)
-                echo -e "  Неверный ввод. В целях безопасности установка ${yellow}$client_name${reset} отменена"
-                return 1
-                ;;
-        esac
+        if [ "$REPLY_KEY" = "1" ]; then
+            echo "  Предупреждение проигнорировано. Продолжаем..."
+            return 0
+        fi
+
+        echo -e "  Установка ${yellow}$client_name${reset} отменена пользователем"
+        return 1
     fi
     return 0
 }

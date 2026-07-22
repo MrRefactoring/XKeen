@@ -139,21 +139,13 @@ confirm_deletion() {
         fi
     fi
 
-    echo
-    echo -e "  ${message}"
-    echo
-    echo "     1. Да"
-    echo "     0. Оставить без изменений"
+    if ask_yesno "$message" "Да" "Оставить без изменений"; then
+        return 0
+    fi
 
     echo
-    while true; do
-        read -r -p "  Ваш выбор: " choice
-            case "$choice" in
-                1) return 0 ;;
-                0) echo && echo "  Отменено пользователем"; return 1 ;;
-                *) echo -e "  ${red}Некорректный ввод${reset}" ;;
-            esac
-    done
+    echo "  Отменено пользователем"
+    return 1
 }
 
 # Функция добавления обязательных портов проксирования
@@ -169,7 +161,7 @@ ensure_web_ports() {
 # Функция добавления портов проксирования
 add_ports_donor() {
     [ -z "$1" ] && {
-        echo -e "  ${red}Ошибка${reset}: список портов не может быть пустым"
+        echo -e "  ${red}✗ Ошибка${reset}: список портов не может быть пустым"
         return 1
     }
 
@@ -223,7 +215,7 @@ del_ports_donor() {
 # Функция добавления портов, исключаемых из проксирования
 add_ports_exclude() {
     [ -z "$1" ] && {
-        echo -e "  ${red}Ошибка${reset}: список портов не может быть пустым"
+        echo -e "  ${red}✗ Ошибка${reset}: список портов не может быть пустым"
         return 1
     }
 

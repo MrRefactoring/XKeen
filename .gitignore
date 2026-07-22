@@ -3,6 +3,7 @@ graphify-out
 done
 src/graphify
 src/output
+.idea/
 
 # Артефакты сборки (CI-генерируемые)
 *.tar.gz

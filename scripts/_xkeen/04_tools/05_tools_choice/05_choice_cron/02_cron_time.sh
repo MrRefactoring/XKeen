@@ -4,25 +4,19 @@ choice_cron_time() {
 
     echo
     echo -e "  Время автоматического обновления ${yellow}геофайлов${reset}:"
-    echo
-    echo "  Выберите день"
-    echo "     0. Отмена"
-    echo "     1. Понедельник"
-    echo "     2. Вторник"
-    echo "     3. Среда"
-    echo "     4. Четверг"
-    echo "     5. Пятница"
-    echo "     6. Суббота"
-    echo "     7. Воскресенье"
-    echo "     8. Ежедневно"
-    echo
 
-    while :; do
-        read -r -p "  Ваш выбор: " day_choice
-        echo "$day_choice" | grep -qE '^[0-8]$' && break
-        echo -e "  ${red}Некорректный номер действия.${reset} Пожалуйста, выберите снова"
-        echo
-    done
+    ask_one "Выберите день" \
+        "1|Понедельник" \
+        "2|Вторник" \
+        "3|Среда" \
+        "4|Четверг" \
+        "5|Пятница" \
+        "6|Суббота" \
+        "7|Воскресенье" \
+        "8|Ежедневно" \
+        "|" \
+        "0|Отмена|default"
+    day_choice="$REPLY_KEY"
 
     [ "$day_choice" -eq 0 ] && {
         echo -e "  Включение автоматического обновления ${yellow}геофайлов${reset} отменено"
@@ -32,23 +26,11 @@ choice_cron_time() {
 
     echo
 
-    while :; do
-        read -r -p "  Выберите час (0-23): " hour
-        case "$hour" in
-            ''|*[!0-9]*) ;;
-            *) [ "$hour" -ge 0 ] && [ "$hour" -le 23 ] && break ;;
-        esac
-        echo -e "  ${red}Некорректный час.${reset} Пожалуйста, попробуйте снова"
-    done
+    ask_value "Выберите час (0-23)" ask_check_hour "Некорректный час. Пожалуйста, попробуйте снова"
+    hour="$REPLY_VALUE"
 
-    while :; do
-        read -r -p "  Выберите минуту (0-59): " minute
-        case "$minute" in
-            ''|*[!0-9]*) ;;
-            *) [ "$minute" -ge 0 ] && [ "$minute" -le 59 ] && break ;;
-        esac
-        echo -e "  ${red}Некорректные минуты.${reset} Пожалуйста, попробуйте снова"
-    done
+    ask_value "Выберите минуту (0-59)" ask_check_minute "Некорректные минуты. Пожалуйста, попробуйте снова"
+    minute="$REPLY_VALUE"
 
     if [ "$day_choice" -eq 8 ]; then
         cron_expression="$minute $hour * * *"

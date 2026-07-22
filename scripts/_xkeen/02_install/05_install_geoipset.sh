@@ -49,23 +49,23 @@ install_geoipset_lst() {
         # Обработка ошибок, если все попытки провалились
         case "$_last_error" in
             html_stub)
-                printf "  ${red}Ошибка${reset}: получена HTML-страница вместо списка IP\n"
+                printf "  ${red}✗ Ошибка${reset}: получена HTML-страница вместо списка IP\n"
                 ;;
             content_v4)
-                printf "  ${red}Ошибка${reset}: %s не содержит корректных IPv4-адресов\n" "$display_name"
+                printf "  ${red}✗ Ошибка${reset}: %s не содержит корректных IPv4-адресов\n" "$display_name"
                 ;;
             content_v6)
-                printf "  ${red}Ошибка${reset}: %s не содержит корректных IPv6-адресов\n" "$display_name"
+                printf "  ${red}✗ Ошибка${reset}: %s не содержит корректных IPv6-адресов\n" "$display_name"
                 ;;
             size|size_mismatch)
-                printf "  ${red}Ошибка${reset}: Размер загруженного файла не соответствует ожидаемому\n"
+                printf "  ${red}✗ Ошибка${reset}: Размер загруженного файла не соответствует ожидаемому\n"
                 ;;
             *)
                 local max_attempts=${retries_download:-1}
                 if [ "$max_attempts" -gt 1 ]; then
-                    printf "  ${red}Ошибка${reset}: не удалось загрузить %s после %d попыток\n" "$display_name" "$max_attempts"
+                    printf "  ${red}✗ Ошибка${reset}: не удалось загрузить %s после %d попыток\n" "$display_name" "$max_attempts"
                 else
-                    printf "  ${red}Ошибка${reset}: не удалось загрузить %s\n" "$display_name"
+                    printf "  ${red}✗ Ошибка${reset}: не удалось загрузить %s\n" "$display_name"
                 fi
                 ;;
         esac
@@ -112,32 +112,19 @@ install_geoipset() {
             printf "  Не интерактивный режим (нет TTY): автоматическая установка GeoIPSET\n"
             bypass_cron_geoipset=false
         else
-            while true; do
-                printf "\n  Желаете исключить российские IP-адреса из проксирования?\n\n"
-                printf "     1. Загрузить и установить в исключения IP-подсети России (${yellow}GeoIPSET${reset})\n"
-                printf "     0. Пропустить\n\n"
-                printf "  Ваш выбор: "
-                read -r choice
+            if ask_yesno "Желаете исключить российские IP-адреса из проксирования?" \
+                "Загрузить и установить в исключения IP-подсети России (${yellow}GeoIPSET${reset})" \
+                "Пропустить"; then
+                mkdir -p "$ipset_cfg" || { echo "Ошибка: Не удалось создать директорию $ipset_cfg"; exit 1; }
+                bypass_cron_geoipset=false
+            else
+                printf "  Выполнен пропуск установки списков GeoIPSET\n\n"
 
-                case "$choice" in
-                    0)
-                        printf "  Выполнен пропуск установки списков GeoIPSET\n\n"
-
-                        if [ ! -f "$ru_exclude_ipv4" ] && [ ! -f "$ru_exclude_ipv6" ]; then
-                            bypass_cron_geoipset=true
-                        fi
-                        return 0
-                        ;;
-                    1)
-                        mkdir -p "$ipset_cfg" || { echo "Ошибка: Не удалось создать директорию $ipset_cfg"; exit 1; }
-                        bypass_cron_geoipset=false
-                        break
-                        ;;
-                    *)
-                        printf "  Неверный ввод. Пожалуйста, введите 1 или 0.\n"
-                        ;;
-                esac
-            done
+                if [ ! -f "$ru_exclude_ipv4" ] && [ ! -f "$ru_exclude_ipv6" ]; then
+                    bypass_cron_geoipset=true
+                fi
+                return 0
+            fi
         fi
     fi
 

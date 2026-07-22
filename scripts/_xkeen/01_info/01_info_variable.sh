@@ -206,6 +206,24 @@ strip_json_comments() {
         -e 's/[[:space:]]\{1,\}\/\/.*$//' "$@"
 }
 
+# Режим экрана
+#
+# flow  — вывод идёт сплошным потоком: видно, что происходило на предыдущих
+#         шагах, и операцию можно разобрать постфактум
+# clear — прежнее поведение: экран стирается перед каждым шагом
+#
+# Стирание экрана (\e[H\e[J) затирает видимую область на месте, не прокручивая
+# её в буфер истории, поэтому вывод короткой операции пропадал бесследно.
+screen_mode_settings() {
+    screen_mode="flow"
+
+    if [ -f "$xkeen_config" ] && command -v jq >/dev/null 2>&1; then
+        parsed_mode=$(strip_json_comments "$xkeen_config" | jq -r '.xkeen.screen_mode // empty' 2>/dev/null)
+        [ "$parsed_mode" = "clear" ] && screen_mode="clear"
+    fi
+}
+screen_mode_settings
+
 # Параметры повтора загрузок
 retries_download_settings() {
     retries_download=1

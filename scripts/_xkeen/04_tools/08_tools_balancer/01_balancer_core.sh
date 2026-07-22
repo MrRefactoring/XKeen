@@ -95,14 +95,20 @@ sb_measure_node() {
     echo "$size $time" | awk '{ if ($2 > 0) printf "%d %s", $1 / $2 / 1024, "200"; else print "0 200" }'
 }
 
-# Текущая эффективная нода балансировщика (что он выбирает сейчас — с учётом
-# ранее выставленного override). Парсит секцию Selects вывода bi. Пусто, если
-# не удалось определить.
+# Текущая ЭФФЕКТИВНАЯ нода балансировщика. bi печатает две секции:
+#   - Selecting Override:   форс через bo (реально активная нода)
+#   - Selects:              выбор leastPing (что было бы без override)
+# Приоритет у Override: после bo трафик идёт через форсированную ноду, а не через
+# leastPing-выбор. Формат обеих секций — "    N   <тег>"; пусто в Override
+# означает, что override не выставлен, тогда берём Selects. Пусто — если не
+# удалось определить.
 sb_current_target() {
     xray api bi -s "$sb_api_addr" "$sb_balancer" 2>/dev/null | awk '
-        /Selects:/    { in_sel = 1; next }
-        /Selecting/   { in_sel = 0 }
-        in_sel && $2 ~ /./ { print $2; exit }'
+        /Selecting Override:/ { sec = "ov";  next }
+        /Selects:/            { sec = "sel"; next }
+        sec == "ov"  && $2 ~ /./ && ov  == "" { ov  = $2 }
+        sec == "sel" && $2 ~ /./ && sel == "" { sel = $2 }
+        END { if (ov != "") print ov; else print sel }'
 }
 
 # Один цикл: замерить все ноды, выбрать самую быструю, переключиться с учётом

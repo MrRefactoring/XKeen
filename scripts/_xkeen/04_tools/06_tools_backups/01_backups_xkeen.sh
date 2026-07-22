@@ -14,7 +14,7 @@ backup_xkeen() {
         mv "$backup_dir/.xkeen" "$backup_dir/_xkeen"
         echo -e "  Резервная копия XKeen создана: ${yellow}${backup_filename}${reset}"
     else
-        echo -e "  ${red}Ошибка${reset} при создании резервной копии XKeen"
+        echo -e "  ${red}✗ Ошибка${reset} при создании резервной копии XKeen"
     fi
 }
 
@@ -40,9 +40,9 @@ restore_backup_xkeen() {
             
             echo -e "  XKeen ${green}успешно восстановлен${reset} из: $(basename "$latest_backup_dir")"
         else
-            echo -e "  ${red}Ошибка:${reset} Не удалось скопировать файлы из резервной копии"
+            echo -e "  ${red}✗ Ошибка:${reset} Не удалось скопировать файлы из резервной копии"
         fi
     else
-        echo -e "  ${red}Ошибка:${reset} Подходящая резервная копия XKeen не найдена"
+        echo -e "  ${red}✗ Ошибка:${reset} Подходящая резервная копия XKeen не найдена"
     fi
 }

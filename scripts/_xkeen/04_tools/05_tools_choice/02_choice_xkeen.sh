@@ -5,38 +5,23 @@ choice_channel_xkeen() {
     
     if [ "$xkeen_build" = "Stable" ]; then
         echo -e "  Стабильная версия (${green}Stable${reset})"
-        echo
-        echo "     1. Переключиться на канал разработки"
-        echo "     0. Остаться на стабильной версии"
+        switch_to="Dev"
+        switch_label="Переключиться на канал разработки"
+        stay_label="Остаться на стабильной версии"
     else
         echo -e "  Версия в разработке (${green}$xkeen_build${reset})"
-        echo
-        echo "     1. Переключиться на стабильную версию"
-        echo "     0. Остаться на версии разработки"
+        switch_to="Stable"
+        switch_label="Переключиться на стабильную версию"
+        stay_label="Остаться на версии разработки"
     fi
 
-    echo
-    while true; do
-        read -r -p "  Ваш выбор: " choice
-        if echo "$choice" | grep -qE '^[0-1]$'; then
-            case "$choice" in
-                1)
-                    if [ "$xkeen_build" = "Stable" ]; then
-                        choice_build="Dev"
-                    else
-                        choice_build="Stable"
-                    fi
-                    return 0
-                    ;;
-                0)
-                    echo "  Остаёмся на текущей ветке XKeen"
-                    return 0
-                    ;;
-            esac
-        else
-            echo -e "  ${red}Некорректный ввод${reset}"
-        fi
-    done
+    if ask_yesno "" "$switch_label" "$stay_label"; then
+        choice_build="$switch_to"
+    else
+        echo "  Остаёмся на текущей ветке XKeen"
+    fi
+
+    return 0
 }
 
 change_channel_xkeen() {
@@ -84,38 +69,21 @@ change_ipv6_support() {
         echo -e "  Текущее состояние IPv6 в ${yellow}KeeneticOS${reset}:"
         if [ "$ip6_supported" = "true" ]; then
             echo -e "  IPv6 ${green}включён${reset}"
-            echo
-            echo "     1. Отключить IPv6"
-            echo "     0. Оставить без изменений"
             desired_state="off"
+            ipv6_action="Отключить IPv6"
+            ipv6_kept="оставлена включённой"
         else
             echo -e "  IPv6 ${green}отключён${reset}"
-            echo
-            echo "     1. Включить IPv6"
-            echo "     0. Оставить без изменений"
             desired_state="on"
+            ipv6_action="Включить IPv6"
+            ipv6_kept="оставлена отключённой"
         fi
 
-        echo
-        while true; do
-            read -r -p "  Ваш выбор: " choice
-            if echo "$choice" | grep -qE '^[0-1]$'; then
-                case "$choice" in
-                    0) 
-                        echo
-                        if [ "$ip6_supported" = "true" ]; then
-                            echo -e "  Поддержка IPv6 в KeeneticOS ${green}оставлена включённой${reset}"
-                        else
-                            echo -e "  Поддержка IPv6 в KeeneticOS ${green}оставлена отключённой${reset}"
-                        fi
-                        return 0 
-                        ;;
-                    1) break ;;
-                esac
-            else
-                echo -e "  ${red}Некорректный ввод${reset}"
-            fi
-        done
+        if ! ask_yesno "" "$ipv6_action" "Оставить без изменений"; then
+            echo
+            echo -e "  Поддержка IPv6 в KeeneticOS ${green}${ipv6_kept}${reset}"
+            return 0
+        fi
     fi
 
     if [ -f "$initd_file" ]; then
@@ -149,18 +117,18 @@ change_ipv6_support() {
                 echo -e "  Поддержка IPv6 в KeeneticOS ${green}отключена${reset}"
                 echo -e "  ${red}Дополнительно убедитесь, что IPv6 отключен в веб-интерфейсе роутера${reset}"
             else
-                echo -e "  ${red}Ошибка${reset} при выключении IPv6"
+                echo -e "  ${red}✗ Ошибка${reset} при выключении IPv6"
             fi
         else
             echo
             if [ "$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null)" -eq 0 ]; then
                 echo -e "  Поддержка IPv6 в KeeneticOS ${green}включена${reset}"
             else
-                echo -e "  ${red}Ошибка${reset} при включении IPv6"
+                echo -e "  ${red}✗ Ошибка${reset} при включении IPv6"
             fi
         fi
     else
-        echo -e "  ${red}Ошибка${reset}: Не найден файл автозапуска ${yellow}S05xkeen${reset}"
+        echo -e "  ${red}✗ Ошибка${reset}: Не найден файл автозапуска ${yellow}S05xkeen${reset}"
         return 1
     fi
 }
@@ -296,14 +264,14 @@ show_pbr_policy_codes() {
     echo
     api_policy_json=$(curl_api "$policy_api_url" 2>/dev/null)
     if [ -z "$api_policy_json" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не удалось получить список политик из веб-интерфейса Keenetic"
+        echo -e "  ${red}✗ Ошибка${reset}: Не удалось получить список политик из веб-интерфейса Keenetic"
         return 1
     fi
 
     if ! printf '%s' "$api_policy_json" | jq -e . >/dev/null 2>&1; then
         api_policy_error=$(_pbr_format_single_line_error "$(printf '%s' "$api_policy_json" | jq -e . 2>&1 >/dev/null)")
         [ -z "$api_policy_error" ] && api_policy_error="невалидный JSON"
-        echo -e "  ${red}Ошибка${reset}: API политик Keenetic вернул невалидный JSON: $api_policy_error"
+        echo -e "  ${red}✗ Ошибка${reset}: API политик Keenetic вернул невалидный JSON: $api_policy_error"
         return 1
     fi
 
@@ -314,7 +282,7 @@ show_pbr_policy_codes() {
     if [ "$main_policy_mark_rc" -ne 0 ]; then
         main_policy_error=$(_pbr_format_single_line_error "$main_policy_mark")
         [ -z "$main_policy_error" ] && main_policy_error="Не удалось обработать список политик Keenetic"
-        echo -e "  ${red}Ошибка${reset}: $main_policy_error"
+        echo -e "  ${red}✗ Ошибка${reset}: $main_policy_error"
         return 1
     fi
     main_policy_mark=$(printf '%s\n' "$main_policy_mark" | sed -n '1p')
@@ -324,7 +292,7 @@ show_pbr_policy_codes() {
         if ! jq -e . "$xkeen_config" >/dev/null 2>&1; then
             xkeen_config_error=$(_pbr_format_single_line_error "$(jq -e . "$xkeen_config" 2>&1 >/dev/null)")
             [ -z "$xkeen_config_error" ] && xkeen_config_error="xkeen.json содержит невалидный JSON"
-            echo -e "  ${red}Ошибка${reset}: ${yellow}xkeen.json${reset}: $xkeen_config_error"
+            echo -e "  ${red}✗ Ошибка${reset}: ${yellow}xkeen.json${reset}: $xkeen_config_error"
             return 1
         fi
 
@@ -339,7 +307,7 @@ show_pbr_policy_codes() {
         if [ "$user_policy_marks_rc" -ne 0 ]; then
             user_policy_error=$(_pbr_format_single_line_error "$user_policy_marks")
             [ -z "$user_policy_error" ] && user_policy_error="Не удалось сопоставить пользовательские политики из xkeen.json"
-            echo -e "  ${red}Ошибка${reset}: ${yellow}xkeen.json${reset}: $user_policy_error"
+            echo -e "  ${red}✗ Ошибка${reset}: ${yellow}xkeen.json${reset}: $user_policy_error"
             return 1
         fi
     fi
@@ -370,7 +338,7 @@ show_pbr_policy_codes() {
 show_pbr_strict_status() {
     echo
     if [ ! -f "$initd_file" ]; then
-        echo -e "  ${red}Ошибка${reset}: Не найден файл ${yellow}S05xkeen${reset}"
+        echo -e "  ${red}✗ Ошибка${reset}: Не найден файл ${yellow}S05xkeen${reset}"
         return 1
     fi
 
